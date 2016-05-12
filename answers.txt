@@ -19,3 +19,5 @@ FIFO OS simulation with 4 CPU
 # of Context Switches: 182
 Total execution time: 33.4 s
 Total time spent in READY state: 0.4 s
+
+There is not a linear relationship.
