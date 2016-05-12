@@ -20,4 +20,4 @@ FIFO OS simulation with 4 CPU
 Total execution time: 33.4 s
 Total time spent in READY state: 0.4 s
 
-There is not a linear relationship.
+There is not a linear relationship between the number of CPUs and total execution time overall. When the CPU is running at maximum capacity, then doubling the number of processes would see a nearly linear speed-up.  When we run the simulation with one processor, the time spent in READY state is pretty high, indicating that processes spend a lot of time waiting for CPU time.  Therefore adding a second CPU caused it to be nearly twice as fast.  However, because two CPUs spend more time idling, adding even more does not cause the same linear speed-up.  In fact the speed-up between 2 CPUs and 4 is only a small percentage of the speed-up between 1 and 2.
