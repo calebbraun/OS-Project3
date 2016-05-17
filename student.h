@@ -2,7 +2,7 @@
  * student.h
  * Multithreaded OS Simulation - original file from project 4 at
  * http://www.cc.gatech.edu/~rama/CS2200-External
- * 
+ *
  * Last modified 2/23/2014 by Sherri Goings
  *
  * YOU WILL NOT NEED TO MODIFY THIS FILE
@@ -18,11 +18,12 @@ extern void idle(unsigned int cpu_id);
 extern void preempt(unsigned int cpu_id);
 extern void yield(unsigned int cpu_id);
 extern void terminate(unsigned int cpu_id);
-extern void wake_up(pcb_t *process);
+extern void wake_up(pcb_t* process);
 
 /* Functions available to use in student.c to manipulate ready queue */
-static void addReadyProcess(pcb_t* proc); 
-static pcb_t* getReadyProcess(void); 
+static void addReadyProcess(pcb_t* proc);
+static pcb_t* getReadyProcess(void);
+static void printReadyQueue();
 
 /*
  * current[] is an array of pointers to the currently running processes.
@@ -33,7 +34,7 @@ static pcb_t* getReadyProcess(void);
  * will need to use a mutex to protect it.  current_mutex has been provided
  * for your use.
  */
-static pcb_t **current;
+static pcb_t** current;
 static pthread_mutex_t current_mutex;
 
 // head and tail of ready queue
@@ -43,7 +44,8 @@ static pcb_t* tail = NULL;
 // mutex to protect ready queue
 static pthread_mutex_t ready_mutex;
 
-// cond var for idle() to sleep on until a process is available on the ready queue
+// cond var for idle() to sleep on until a process is available on the ready
+// queue
 static pthread_cond_t ready_empty;
 
 #endif /* __STUDENT_H__ */

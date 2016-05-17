@@ -432,6 +432,8 @@ static void simulate_process(unsigned int cpu_id, pcb_t *pcb) {
         simulator_cpu_data[cpu_id].preemption_timer--;
         if (simulator_cpu_data[cpu_id].preemption_timer == 0) {
           /* The timer has expired; preempt the running process */
+          printf("Preemption timer EXPIRED!\n");
+          fflush(stdout);
           simulator_cpu_data[cpu_id].state = CPU_PREEMPT;
           pthread_cond_signal(&simulator_cpu_data[cpu_id].wakeup);
           // wait to make sure thread finishes preempt and context switch
@@ -470,12 +472,12 @@ static void simulate_process(unsigned int cpu_id, pcb_t *pcb) {
 
     case OP_IO:
       /* Scheduling a process that's blocked on I/O */
-      printf("Scheduled a process that's blocked on I/0! PID: %d\n", pcb->pid);
+      printf("Scheduled a process that's blocked on I/0! PID: %s\n", pcb->name);
       break;
 
     case OP_TERMINATE:
       /* Scheduling a process that's terminated */
-      printf("Scheduled a terminated process! PID: %d\n", pcb->pid);
+      printf("Scheduled a terminated process! PID: %s\n", pcb->name);
       break;
   }
 }

@@ -21,3 +21,31 @@ Total execution time: 33.4 s
 Total time spent in READY state: 0.4 s
 
 There is not a linear relationship between the number of CPUs and total execution time overall. When the CPU is running at maximum capacity, then doubling the number of processes would see a nearly linear speed-up.  When we run the simulation with one processor, the time spent in READY state is pretty high, indicating that processes spend a lot of time waiting for CPU time.  Therefore adding a second CPU caused it to be nearly twice as fast.  However, because two CPUs spend more time idling, adding even more does not cause the same linear speed-up.  In fact the speed-up between 2 CPUs and 4 is only a small percentage of the speed-up between 1 and 2.
+
+
+Question 2:
+
+RR OS simulation with 1 CPU with 800ms timeslice
+# of Context Switches: 136
+Total execution time: 67.6 s
+Total time spent in READY state: 325.4 s
+
+RR OS simulation with 1 CPU with 600ms timeslice
+# of Context Switches: 161
+Total execution time: 67.6 s
+Total time spent in READY state: 314.5 s
+
+RR OS simulation with 1 CPU with 400ms timeslice
+# of Context Switches: 203
+Total execution time: 67.6 s
+Total time spent in READY state: 298.8 s
+
+RR OS simulation with 1 CPU with 200ms timeslice
+# of Context Switches: 362
+Total execution time: 67.5 s
+Total time spent in READY state: 285.2 s
+
+The smaller timeslice we used did not affect the total execution time but did cause the total time spent in READY state to drop. As expected, the number of context switches increases because a process is more likely to be preempted during its given timeslice.  In a real OS, however, the shortest timeslice possible is not the best choice because we spend a higher amount of time context switching, and therefore less time with processes actually running.
+
+
+

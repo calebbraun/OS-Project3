@@ -18,6 +18,7 @@
 static void addReadyProcess(pcb_t* proc);
 static pcb_t* getReadyProcess(void);
 static void schedule(unsigned int cpu_id);
+static void printReadyQueue();
 
 /*
  * enum is useful C language construct to associate desriptive words with
@@ -77,6 +78,10 @@ int main(int argc, char* argv[]) {
 
   /* Allocate the current[] array and its mutex */
   current = malloc(sizeof(pcb_t*) * cpu_count);
+  int i;
+  for (i = 0; i < cpu_count; i++) {
+    current[i] = NULL;
+  }
   assert(current != NULL);
   pthread_mutex_init(&current_mutex, NULL);
 
@@ -139,12 +144,21 @@ static void schedule(unsigned int cpu_id) {
   if (proc != NULL) {
     proc->state = PROCESS_RUNNING;
   }
-  context_switch(cpu_id, proc, -1);
+
+  if (alg == FIFO) {
+    context_switch(cpu_id, proc, -1);
+  } else if (alg == RoundRobin) {
+    // select a process from the ready queue
+    // call context_switch with appropriate time slice
+    context_switch(cpu_id, proc, time_slice);
+    // if no ready processes, idle
+  } else if (alg == StaticPriority) {
+  }
 }
 
 /*
  * preempt() is called when a process is preempted due to its timeslice
- *expiring.
+ * expiring.
  *
  * This function should place the currently running process back in the
  * ready queue, then call schedule() to select a new runnable process.
@@ -152,7 +166,16 @@ static void schedule(unsigned int cpu_id) {
  * THIS FUNCTION MUST BE IMPLEMENTED FOR ROUND ROBIN OR PRIORITY SCHEDULING
  */
 extern void preempt(unsigned int cpu_id) {
-  // other stuff
+  printReadyQueue();
+
+  pthread_mutex_lock(&current_mutex);
+  pcb_t* proc = current[cpu_id];
+  pthread_mutex_unlock(&current_mutex);
+
+  proc->state = PROCESS_READY;
+  addReadyProcess(proc);
+
+  printReadyQueue();
 
   schedule(cpu_id);
 }
@@ -217,9 +240,8 @@ extern void wake_up(pcb_t* process) {
 
 /*
  * addReadyProcess adds a process to the end of a pseudo linked list (each
- * process
- * struct contains a pointer next that you can use to chain them together)
- * it takes a pointer to a process as an argument and has no return
+ * process struct contains a pointer next that you can use to chain them
+ * together) it takes a pointer to a process as an argument and has no return
  */
 static void addReadyProcess(pcb_t* proc) {
 
@@ -245,11 +267,9 @@ static void addReadyProcess(pcb_t* proc) {
 
 /*
  * getReadyProcess removes a process from the front of a pseudo linked list
- *(each process
- * struct contains a pointer next that you can use to chain them together)
- * it takes no arguments and returns the first process in the ready queue, or
- *NULL
- * if the ready queue is empty
+ * (each process struct contains a pointer next that you can use to chain them
+ * together) it takes no arguments and returns the first process in the ready
+ * queue, or NULL if the ready queue is empty
  *
  * TO-DO: handle priority scheduling
  *
@@ -276,3 +296,34 @@ static pcb_t* getReadyProcess(void) {
   pthread_mutex_unlock(&ready_mutex);
   return first;
 }
+
+// prints the ready queue for debugging purposes
+static void printReadyQueue() {
+  pcb_t* current = head;
+  while (current != NULL) {
+    printf(" %s ---->", current->name);
+    current = current->next;
+  }
+  printf("\n");
+  fflush(stdout);
+}
+
+/*
+    I changed a few things around:
+
+    1.) I changed the preempt() function to use the already implemented
+        addReadyProcess() function. I think it still does the same thing
+        as before.
+
+    2.) I added a printReadyQueue() function and had to define it in the
+        student.h file (which she said not to edit lol) but it should
+        print out the ready queue whenever called.
+
+    3.) I dont know why we are still calling functions that are terminated
+        or blocking on I/O. Completely lost on that. I added a print
+        statement in the chooseReadyProcess() function that prints the
+        ready process chosen and that process isn't in the ready Q.
+
+    4.) I would be down to work on this tomorrow (4:00-5:30, 6:30-9:00).
+        If one of those times works for you shoot me an email.
+*/
