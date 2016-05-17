@@ -119,16 +119,15 @@ extern void idle(unsigned int cpu_id) {
  * 1. calls getReadyProcess to select and remove a runnable process from your
  * ready queue
  * 2. updates the current array to show this process (or NULL if there was none)
- * as
- *    running on the given cpu
+ * as running on the given cpu
  * 3. sets this process state to running (unless its the NULL process)
  * 4. calls context_switch to actually start the chosen process on the given cpu
  *    - note if proc==NULL the idle process will be run
  *    - note the final arg of -1 means there is no clock interrupt
  *	context_switch() is prototyped in os-sim.h. Look there for more
- *information.
- *  a basic getReadyProcess() is implemented below, look at the comments for
- *info.
+ * information.
+ * a basic getReadyProcess() is implemented below, look at the comments for
+ * info.
  *
  * TO-DO: handle scheduling with a time-slice when necessary
  *
@@ -153,6 +152,7 @@ static void schedule(unsigned int cpu_id) {
     context_switch(cpu_id, proc, time_slice);
     // if no ready processes, idle
   } else if (alg == StaticPriority) {
+    context_switch(cpu_id, proc, -1);
   }
 }
 
@@ -218,8 +218,7 @@ extern void terminate(unsigned int cpu_id) {
  * The current implementation handles basic FIFO scheduling by simply
  * marking the process as READY, and calling addReadyProcess to put it in the
  * ready queue.  No locks are needed to set the process state as its not
- *possible
- * for anyone else to also access it at the same time as wake_up
+ * possible for anyone else to also access it at the same time as wake_up
  *
  * TO-DO: If the scheduling algorithm is static priority, wake_up() may need
  * to preempt the CPU with the lowest priority process to allow it to
@@ -233,7 +232,34 @@ extern void terminate(unsigned int cpu_id) {
  */
 extern void wake_up(pcb_t* process) {
   process->state = PROCESS_READY;
-  addReadyProcess(process);
+  printf("Process %s woken up!\n", process->name);
+  fflush(stdout);
+  if (alg == StaticPriority) {
+    for (int id = 0; id < cpu_count; id++) {
+      pthread_mutex_lock(&current_mutex);
+      if (current[id] == NULL || current[id]->state == PROCESS_WAITING) {
+        pthread_mutex_unlock(&current_mutex);
+        // Schedule process on idle CPU. If CPU is idling that means ready queue
+        // is empty.
+        addReadyProcess(process);
+        schedule(id);
+        return;
+
+      } else if (current[id]->static_priority < process->static_priority) {
+        pthread_mutex_unlock(&current_mutex);
+        // Force preempt on this CPU
+        force_preempt(id);
+        addReadyProcess(process);
+        schedule(id);
+        return;
+      }
+      // else loop again checking next CPU
+      pthread_mutex_unlock(&current_mutex);
+    }
+  } else {
+    process->state = PROCESS_READY;
+    addReadyProcess(process);
+  }
 }
 
 /* The following 2 functions implement a FIFO ready queue of processes */
@@ -244,25 +270,41 @@ extern void wake_up(pcb_t* process) {
  * together) it takes a pointer to a process as an argument and has no return
  */
 static void addReadyProcess(pcb_t* proc) {
-
   // ensure no other process can access ready list while we update it
   pthread_mutex_lock(&ready_mutex);
 
-  // add this process to the end of the ready list
-  if (head == NULL) {
-    head = proc;
-    tail = proc;
-    // if list was empty may need to wake up idle process
-    pthread_cond_signal(&ready_empty);
+  // if alg is StaticPriority add the processes in order of priority
+  if (alg == StaticPriority) {
+    if (head == NULL) {
+      head = proc;
+      tail = proc;
+      // if list was empty may need to wake up idle process
+      pthread_cond_signal(&ready_empty);
+    }
+    pcb_t* current = head;
+    while (current->next != NULL &&
+           proc->static_priority < current->next->static_priority) {
+      current = current->next;
+    }
+    proc->next = current->next;
+    current->next = proc;
   } else {
-    tail->next = proc;
-    tail = proc;
+    // add this process to the end of the ready list
+    if (head == NULL) {
+      head = proc;
+      tail = proc;
+      // if list was empty may need to wake up idle process
+      pthread_cond_signal(&ready_empty);
+    } else {
+      tail->next = proc;
+      tail = proc;
+    }
+    // ensure that this proc points to NULL
+    proc->next = NULL;
   }
-
-  // ensure that this proc points to NULL
-  proc->next = NULL;
-
   pthread_mutex_unlock(&ready_mutex);
+  printf("Process %s on ready queue!\n", proc->name);
+  fflush(stdout);
 }
 
 /*
@@ -294,6 +336,8 @@ static pcb_t* getReadyProcess(void) {
   if (head == NULL) tail = NULL;
 
   pthread_mutex_unlock(&ready_mutex);
+  printf("Giving process %s to scheduler\n", first->name);
+  fflush(stdout);
   return first;
 }
 
