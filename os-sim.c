@@ -322,7 +322,8 @@ static void print_gantt_line(void) {
   /* Print running processes */
   for (n = 0; n < cpu_count; n++) {
     if (simulator_cpu_data[n].current != NULL)
-      printf(" %-8s", simulator_cpu_data[n].current->name);
+      printf(" %-8s%d", simulator_cpu_data[n].current->name,
+             simulator_cpu_data[n].current->static_priority);
     else
       printf(" (IDLE)  ");
   }
@@ -407,8 +408,9 @@ static void simulate_cpus(void) {
   int n;
 
   for (n = 0; n < cpu_count; n++) {
-    if (simulator_cpu_data[n].current != NULL)
+    if (simulator_cpu_data[n].current != NULL) {
       simulate_process(n, simulator_cpu_data[n].current);
+    }
   }
 }
 
