@@ -248,7 +248,6 @@ extern void wake_up(pcb_t* process) {
     for (int id = 0; id < cpu_count; id++) {
       pthread_mutex_lock(&current_mutex);
       if (current[id] == NULL || current[id]->state == PROCESS_WAITING) {
-
         // If CPU is idling that means ready queue is empty.
         // Adding a process to it will cause that process to run.
         current[id] = process;
