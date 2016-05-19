@@ -48,4 +48,13 @@ Total time spent in READY state: 285.2 s
 The smaller timeslice we used did not affect the total execution time but did cause the total time spent in READY state to drop. As expected, the number of context switches increases because a process is more likely to be preempted during its given timeslice.  In a real OS, however, the shortest timeslice possible is not the best choice because we spend a higher amount of time context switching, and therefore less time with processes actually running.
 
 
+Question 3:
+
+
+FIFO has a waiting time of 389.9s
+RR has an average waiting time of 300s
+Static Priority has an average waiting time of 175s
+
+
+
 

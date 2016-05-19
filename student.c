@@ -244,6 +244,7 @@ extern void wake_up(pcb_t* process) {
   printf("Process %s woken up!\n", process->name);
   fflush(stdout);
   if (alg == StaticPriority) {
+    int lowestPrioCPU = 0;
     for (int id = 0; id < cpu_count; id++) {
       printf("waiting on lock\n");
       fflush(stdout);
@@ -255,26 +256,26 @@ extern void wake_up(pcb_t* process) {
         pthread_mutex_unlock(&current_mutex);
         addReadyProcess(process);
         return;
-
-      } else if (current[id]->static_priority < process->static_priority) {
-        printf("force_preempt(%d) for %s\n", id, process->name);
-        fflush(stdout);
-
-        pthread_mutex_unlock(&current_mutex);
-        addReadyProcess(process);
-        force_preempt(id);
-        return;
+      } else if (current[id]->static_priority <
+                 current[lowestPrioCPU]->static_priority) {
+        lowestPrioCPU = id;
       }
-      pthread_mutex_unlock(&current_mutex);
-
       // else loop again checking next CPU
+      pthread_mutex_unlock(&current_mutex);
+    }
+
+    if (current[lowestPrioCPU]->static_priority < process->static_priority) {
+      printf("force_preempt(%d) for %s\n", lowestPrioCPU, process->name);
+      fflush(stdout);
+      pthread_mutex_unlock(&current_mutex);
+      addReadyProcess(process);
+      force_preempt(lowestPrioCPU);
+      return;
     }
 
     pthread_mutex_unlock(&current_mutex);
-    addReadyProcess(process);
-  } else {
-    addReadyProcess(process);
   }
+  addReadyProcess(process);
 }
 
 /* The following 2 functions implement a FIFO ready queue of processes */
