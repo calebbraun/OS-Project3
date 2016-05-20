@@ -22,6 +22,9 @@
 static void addReadyProcess(pcb_t* proc);
 static pcb_t* getReadyProcess(void);
 static void schedule(unsigned int cpu_id);
+static void addMultiLevelProcess(pcb_t* proc);
+static void updatePriorities(void);
+static pcb_t* getMultiLevelProcess(void);
 
 /*
  * enum is useful C language construct to associate desriptive words with
@@ -37,7 +40,8 @@ static void schedule(unsigned int cpu_id);
 typedef enum {
   FIFO = 0,
   RoundRobin,
-  StaticPriority
+  StaticPriority,
+  MultiLevel
 } scheduler_alg;
 
 scheduler_alg alg;
@@ -45,6 +49,7 @@ scheduler_alg alg;
 // declare other global vars
 int time_slice = -1;
 int cpu_count;
+int max_wait_time;
 
 /*
  * main() parses command line arguments, initializes globals, and starts
@@ -66,10 +71,19 @@ int main(int argc, char* argv[]) {
   } else if (argc > 2 && strcmp(argv[2], "-p") == 0) {
     alg = StaticPriority;
     printf("running with static priority\n");
+  } else if (argc > 2 && strcmp(argv[2], "-m") == 0 && argc > 4) {
+    alg = MultiLevel;
+    time_slice = atoi(argv[3]);
+    max_wait_time = atoi(argv[4]);
+    printf("running with multi-level feedback queues\n");
   } else {
     fprintf(stderr,
-            "Usage: ./os-sim <# CPUs> [ -r <time slice> | -p ]\n"
+            "Usage: ./os-sim <# CPUs> [ -r <time slice> | -p | -m <time slice> "
+            "<max wait time>]\n"
             "    Default : FIFO Scheduler\n"
+            "					-m : Multi level Feedback "
+            "Queue "
+            "Scheduler\n"
             "         -r : Round-Robin Scheduler (must also give time slice)\n"
             "         -p : Static Priority Scheduler\n\n");
     return -1;
@@ -151,6 +165,9 @@ static void schedule(unsigned int cpu_id) {
   if (alg == FIFO || alg == StaticPriority) {
     context_switch(cpu_id, proc, -1);
   } else if (alg == RoundRobin) {
+    context_switch(cpu_id, proc, time_slice);
+  } else if (alg == MultiLevel) {
+    updatePriorities();
     context_switch(cpu_id, proc, time_slice);
   }
 }
@@ -263,6 +280,97 @@ extern void wake_up(pcb_t* process) {
   addReadyProcess(process);
 }
 
+// gets the next process by first checking the level 1 Q, and so on...
+static pcb_t* getMultiLevelProcess(void) {
+  // ensure no other process can access ready list while we update it
+  pthread_mutex_lock(&ready_mutex);
+
+  pcb_t* first;
+  // need to find the first process;
+  if (head1 == NULL) {
+    if (head2 == NULL) {
+      if (head3 == NULL) {
+        if (head4 == NULL) {
+          pthread_mutex_unlock(&ready_mutex);
+          return NULL;
+        } else {
+          first = head4;
+          head4 = first->next;
+          first->next = NULL;
+        }
+      } else {
+        first = head3;
+        head3 = first->next;
+        first->next = NULL;
+      }
+    } else {
+      first = head2;
+      head2 = first->next;
+      first->next = NULL;
+    }
+  } else {
+    first = head1;
+    head1 = first->next;
+    first->next = NULL;
+  }
+
+  // if there was no next process, list is now empty, set tail to NULL
+  if (head1 == NULL) tail1 = NULL;
+  if (head2 == NULL) tail2 = NULL;
+  if (head3 == NULL) tail3 = NULL;
+  if (head4 == NULL) tail4 = NULL;
+
+  pthread_mutex_unlock(&ready_mutex);
+  return first;
+}
+
+static void addMultiLevelProcess(pcb_t* proc) {
+  pthread_mutex_lock(&ready_mutex);
+  int prio = proc->priority;
+  if (prio == 1) {
+    if (head1 == NULL) {
+      head1 = proc;
+      tail1 = proc;
+      // pthread_cond_signal(&ready_empty);
+    } else {
+      tail1->next = proc;
+      tail1 = proc;
+    }
+  } else if (prio == 2) {
+    if (head2 == NULL) {
+      head2 = proc;
+      tail2 = proc;
+      // pthread_cond_signal(&ready_empty);
+    } else {
+      tail2->next = proc;
+      tail2 = proc;
+    }
+  } else if (prio == 3) {
+    if (head3 == NULL) {
+      head3 = proc;
+      tail3 = proc;
+      // pthread_cond_signal(&ready_empty);
+    } else {
+      tail3->next = proc;
+      tail3 = proc;
+    }
+  } else {
+    if (head4 == NULL) {
+      head4 = proc;
+      tail4 = proc;
+      // pthread_cond_signal(&ready_empty);
+    } else {
+      tail4->next = proc;
+      tail4 = proc;
+    }
+  }
+  proc->next = NULL;
+  proc->time_added = getSimulatorTime();
+
+  pthread_mutex_unlock(&ready_mutex);
+  return;
+}
+
 /* The following 2 functions implement a FIFO ready queue of processes */
 
 /*
@@ -334,6 +442,9 @@ static void addReadyProcess(pcb_t* proc) {
  * THIS FUNCTION IS PARTIALLY COMPLETED - REQUIRES MODIFICATION
  */
 static pcb_t* getReadyProcess(void) {
+  if (alg == MultiLevel) {
+    return getMultiLevelProcess();
+  }
   // ensure no other process can access ready list while we update it
   pthread_mutex_lock(&ready_mutex);
 
@@ -343,8 +454,10 @@ static pcb_t* getReadyProcess(void) {
     return NULL;
   }
 
-  // Get first process to return and update head to point to next process. This
-  // is the same for all algorithms because Static Priority has a priority queue
+  // Get first process to return and update head to point to next process.
+  // This
+  // is the same for all algorithms because Static Priority has a priority
+  // queue
   pcb_t* first = head;
   head = first->next;
   first->next = NULL;
@@ -354,4 +467,22 @@ static pcb_t* getReadyProcess(void) {
 
   pthread_mutex_unlock(&ready_mutex);
   return first;
+}
+
+static void updatePriorities(void) {
+  pthread_mutex_lock(&ready_mutex);
+  unsigned int currentTime = getSimulatorTime();
+  pcb_t* currentProc;
+  for (size_t i = 1; i < 4; i++) {
+    if (i == 1) currentProc = head2;
+    if (i == 2) currentProc = head3;
+    if (i == 3) currentProc = head4;
+    while (currentProc != NULL) {
+      if (currentTime - currentProc->time_added > max_wait_time) {
+        currentProc->priority = i;
+      }
+      currentProc = currentProc->next;
+    }
+  }
+  pthread_mutex_unlock(&ready_mutex);
 }

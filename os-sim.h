@@ -11,20 +11,18 @@
 #ifndef __OS_SIM_H__
 #define __OS_SIM_H__
 
-
 /*
  * The process_state_t enum contains the possible states for a process.
  *
  * See Section 4.1.2 in Operating System Concepts (the Dinosaur Book).
  */
 typedef enum {
-    PROCESS_NEW = 0,
-    PROCESS_READY,
-    PROCESS_RUNNING,
-    PROCESS_WAITING,
-    PROCESS_TERMINATED
+  PROCESS_NEW = 0,
+  PROCESS_READY,
+  PROCESS_RUNNING,
+  PROCESS_WAITING,
+  PROCESS_TERMINATED
 } process_state_t;
-
 
 /*
  * The Process Control Block
@@ -47,30 +45,33 @@ typedef enum {
  *   next : An unused pointer to another PCB.  You may use this pointer to
  *        build a linked-list of PCBs.
  */
-typedef enum { OP_CPU = 0, OP_IO, OP_TERMINATE } op_type;
+typedef enum {
+  OP_CPU = 0,
+  OP_IO,
+  OP_TERMINATE
+} op_type;
 
 typedef struct {
-    op_type type;
-    int time;
+  op_type type;
+  int time;
 } op_t;
 
-
 typedef struct _pcb_t {
-    const unsigned int pid;
-    const char *name;
-    const unsigned int static_priority;
-    process_state_t state;
-    op_t *pc;
-    struct _pcb_t *next;
+  const unsigned int pid;
+  const char *name;
+  const unsigned int static_priority;
+  unsigned int priority;
+  float time_added;
+  process_state_t state;
+  op_t *pc;
+  struct _pcb_t *next;
 } pcb_t;
-
 
 /*
  * start_simulator() runs the OS simulation.  The number of CPUs (1-16) should
  * be passed as the parameter.
  */
 extern void start_simulator(unsigned int cpu_count);
-
 
 /*
  * context_switch() schedules a process on a CPU.  Note that it is
@@ -86,7 +87,6 @@ extern void start_simulator(unsigned int cpu_count);
 extern void context_switch(unsigned int cpu_id, pcb_t *pcb,
                            int preemption_time);
 
-
 /*
  * force_preempt() preempts a running process before its timeslice expires.
  * It should be used by the Static Priority scheduler to preempt lower
@@ -94,13 +94,12 @@ extern void context_switch(unsigned int cpu_id, pcb_t *pcb,
  */
 extern void force_preempt(unsigned int cpu_id);
 
-
 /*
  * mt_safe_usleep() is a thread-safe implementation of the usleep() function.
  * See man usleep(3) for the behavior of this function.
  */
 extern void mt_safe_usleep(unsigned long usec);
 
+extern unsigned int getSimulatorTime(void);
 
 #endif /* __OS_SIM_H__ */
-

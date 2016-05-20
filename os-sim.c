@@ -560,3 +560,5 @@ extern void mt_safe_usleep(unsigned long usec) {
   while (nanosleep(&ts, &ts) != 0)
     ;
 }
+
+extern unsigned int getSimulatorTime(void) { return simulator_time; }

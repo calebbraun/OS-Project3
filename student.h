@@ -23,6 +23,9 @@ extern void wake_up(pcb_t* process);
 /* Functions available to use in student.c to manipulate ready queue */
 static void addReadyProcess(pcb_t* proc);
 static pcb_t* getReadyProcess(void);
+static void addMultiLevelProcess(pcb_t* proc);
+static void updatePriorities(void);
+static pcb_t* getMultiLevelProcess(void);
 
 /*
  * current[] is an array of pointers to the currently running processes.
@@ -39,6 +42,16 @@ static pthread_mutex_t current_mutex;
 // head and tail of ready queue
 static pcb_t* head = NULL;
 static pcb_t* tail = NULL;
+
+// head and tail of multi-level queues
+static pcb_t* head1 = NULL;
+static pcb_t* tail1 = NULL;
+static pcb_t* head2 = NULL;
+static pcb_t* tail2 = NULL;
+static pcb_t* head3 = NULL;
+static pcb_t* tail3 = NULL;
+static pcb_t* head4 = NULL;
+static pcb_t* tail4 = NULL;
 
 // mutex to protect ready queue
 static pthread_mutex_t ready_mutex;
