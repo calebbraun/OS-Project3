@@ -340,7 +340,7 @@ static void addReadyProcess(pcb_t* proc) {
   }
 
   proc->state = PROCESS_READY;
-  printf("Process %s on ready queue:\n", proc->name);
+  printf("Process %s added to queue:\n", proc->name);
   fflush(stdout);
   printReadyQueue();
   pthread_mutex_unlock(&ready_mutex);
