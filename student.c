@@ -3,6 +3,10 @@
  * This file contains the CPU scheduler for the simulation.
  * original base code from http://www.cc.gatech.edu/~rama/CS2200
  * Last modified 5/11/2016 by Sherri Goings
+ *
+ * Caleb Braun and Reilly Hallstrom
+ * 5/19/2016
+ *
  */
 
 #include <assert.h>
@@ -18,7 +22,6 @@
 static void addReadyProcess(pcb_t* proc);
 static pcb_t* getReadyProcess(void);
 static void schedule(unsigned int cpu_id);
-static void printReadyQueue();
 
 /*
  * enum is useful C language construct to associate desriptive words with
@@ -105,18 +108,12 @@ int main(int argc, char* argv[]) {
  * THIS FUNCTION IS ALREADY COMPLETED - DO NOT MODIFY
  */
 extern void idle(unsigned int cpu_id) {
-  printf("idle(%d)\n", cpu_id);
-  fflush(stdout);
   pthread_mutex_lock(&ready_mutex);
   while (head == NULL) {
-    printf("Nothing on ready queue, CPU %d idling.\n", cpu_id);
-    fflush(stdout);
     pthread_cond_wait(&ready_empty, &ready_mutex);
   }
   pthread_mutex_unlock(&ready_mutex);
   schedule(cpu_id);
-  printf("CPU %d done idling.\n", cpu_id);
-  fflush(stdout);
 }
 
 /*
@@ -150,19 +147,11 @@ static void schedule(unsigned int cpu_id) {
     proc->state = PROCESS_RUNNING;
   }
 
-  if (alg == FIFO) {
+  // FIFO and Static Priority don't use time slices
+  if (alg == FIFO || alg == StaticPriority) {
     context_switch(cpu_id, proc, -1);
   } else if (alg == RoundRobin) {
-    // select a process from the ready queue
-    // call context_switch with appropriate time slice
     context_switch(cpu_id, proc, time_slice);
-    // if no ready processes, idle
-  } else if (alg == StaticPriority) {
-    if (proc != NULL) {
-      printf("Calling context_switch() for %s on CPU %d\n", proc->name, cpu_id);
-      fflush(stdout);
-    }
-    context_switch(cpu_id, proc, -1);
   }
 }
 
@@ -178,10 +167,9 @@ static void schedule(unsigned int cpu_id) {
 extern void preempt(unsigned int cpu_id) {
   pthread_mutex_lock(&current_mutex);
   pcb_t* proc = current[cpu_id];
-  printf("preempt()\n");
-  fflush(stdout);
   pthread_mutex_unlock(&current_mutex);
 
+  // Puts the running process on the ready queue
   addReadyProcess(proc);
   schedule(cpu_id);
 }
@@ -197,8 +185,6 @@ extern void preempt(unsigned int cpu_id) {
  */
 extern void yield(unsigned int cpu_id) {
   // use lock to ensure thread-safe access to current process
-  printf("yield(%d) - %s moving to IO queue.\n", cpu_id, current[cpu_id]->name);
-  fflush(stdout);
   pthread_mutex_lock(&current_mutex);
   current[cpu_id]->state = PROCESS_WAITING;
   pthread_mutex_unlock(&current_mutex);
@@ -216,8 +202,6 @@ extern void yield(unsigned int cpu_id) {
 extern void terminate(unsigned int cpu_id) {
   // use lock to ensure thread-safe access to current process
   pthread_mutex_lock(&current_mutex);
-  printf("\n***** PROCESS %s COMPLETE *****\n\n", current[cpu_id]->name);
-  fflush(stdout);
   current[cpu_id]->state = PROCESS_TERMINATED;
   pthread_mutex_unlock(&current_mutex);
   schedule(cpu_id);
@@ -241,23 +225,23 @@ extern void terminate(unsigned int cpu_id) {
  * THIS FUNCTION IS PARTIALLY COMPLETED - REQUIRES MODIFICATION
  */
 extern void wake_up(pcb_t* process) {
-  printf("Process %s woken up!\n", process->name);
-  fflush(stdout);
   if (alg == StaticPriority) {
+    // Integer to keep track of which CPU is running the lowest priority proc.
     int lowestPrioCPU = 0;
+
     for (int id = 0; id < cpu_count; id++) {
-      printf("waiting on lock\n");
-      fflush(stdout);
       pthread_mutex_lock(&current_mutex);
-      // If we're idling
+
+      // If a CPU is idling, just put the process on the ready queue and
+      // addReadyProcess() will signal the CPU to run the process
       if (current[id] == NULL) {
-        printf("CPU %d is running IDLE\n", id);
-        fflush(stdout);
         pthread_mutex_unlock(&current_mutex);
         addReadyProcess(process);
         return;
-      } else if (current[id]->static_priority <
-                 current[lowestPrioCPU]->static_priority) {
+      }
+      // If the CPUs are all running, find the CPU with the lowest priority
+      else if (current[id]->static_priority <
+               current[lowestPrioCPU]->static_priority) {
         pthread_mutex_unlock(&current_mutex);
         lowestPrioCPU = id;
       }
@@ -265,9 +249,8 @@ extern void wake_up(pcb_t* process) {
       pthread_mutex_unlock(&current_mutex);
     }
 
+    // force_preempt() the CPU with the lowest priority process
     if (current[lowestPrioCPU]->static_priority < process->static_priority) {
-      printf("force_preempt(%d) for %s\n", lowestPrioCPU, process->name);
-      fflush(stdout);
       pthread_mutex_unlock(&current_mutex);
       addReadyProcess(process);
       force_preempt(lowestPrioCPU);
@@ -276,6 +259,7 @@ extern void wake_up(pcb_t* process) {
 
     pthread_mutex_unlock(&current_mutex);
   }
+  // FIFO and Round Robin (and Static Priority if process is low priority)
   addReadyProcess(process);
 }
 
@@ -290,19 +274,17 @@ static void addReadyProcess(pcb_t* proc) {
   // Ensure no other process can access ready list while we update it
   pthread_mutex_lock(&ready_mutex);
 
-  // if alg is StaticPriority add the processes in order of priority
+  // if alg is StaticPriority order queue by priority
   if (alg == StaticPriority) {
     pcb_t* current = head;
-    if (head == NULL) {  // Empty queue
-      printf("Adding %s to empty Q\n", proc->name);
-      fflush(stdout);
-      // proc->next = NULL;
+    // Empty queue
+    if (head == NULL) {
       head = proc;
       tail = proc;
       pthread_cond_signal(&ready_empty);  // wake up any idling CPUs
-    } else if (head->next == NULL) {
-      printf("Adding %s to Q of size 1\n", proc->name);
-      fflush(stdout);
+    }
+    // One process on queue
+    else if (head->next == NULL) {
       if (proc->static_priority > head->static_priority) {
         pcb_t* temp = head;
         proc->next = temp;
@@ -312,10 +294,9 @@ static void addReadyProcess(pcb_t* proc) {
         head->next = proc;
         tail = proc;
       }
-    } else {
-      printReadyQueue();
-      printf("Adding %s to Q of size > 1\n", proc->name);
-      fflush(stdout);
+    }
+    // More than one process on queue
+    else {
       while (current->next != NULL &&
              current->next->static_priority > proc->static_priority) {
         current = current->next;
@@ -323,10 +304,8 @@ static void addReadyProcess(pcb_t* proc) {
       pcb_t* temp = current->next;
       current->next = proc;
       proc->next = temp;
-      printReadyQueue();
     }
-  } else {
-    // add this process to the end of the ready list
+  } else {  // If not Static Priority, just add process to end of queue
     if (head == NULL) {
       head = proc;
       tail = proc;
@@ -341,9 +320,6 @@ static void addReadyProcess(pcb_t* proc) {
   }
 
   proc->state = PROCESS_READY;
-  printf("Process %s added to queue:\n", proc->name);
-  fflush(stdout);
-  printReadyQueue();
   pthread_mutex_unlock(&ready_mutex);
 }
 
@@ -367,7 +343,8 @@ static pcb_t* getReadyProcess(void) {
     return NULL;
   }
 
-  // get first process to return and update head to point to next process
+  // Get first process to return and update head to point to next process. This
+  // is the same for all algorithms because Static Priority has a priority queue
   pcb_t* first = head;
   head = first->next;
   first->next = NULL;
@@ -375,21 +352,6 @@ static pcb_t* getReadyProcess(void) {
   // if there was no next process, list is now empty, set tail to NULL
   if (head == NULL) tail = NULL;
 
-  printf("Giving process %s to scheduler\n", first->name);
-  fflush(stdout);
   pthread_mutex_unlock(&ready_mutex);
   return first;
-}
-
-// prints the ready queue for debugging purposes
-static void printReadyQueue() {
-  // pthread_mutex_lock(&ready_mutex);
-  pcb_t* current = head;
-  while (current != NULL) {
-    printf("%s %d ----> ", current->name, current->static_priority);
-    current = current->next;
-  }
-  printf("NULL\n");
-  fflush(stdout);
-  // pthread_mutex_unlock(&ready_mutex);
 }

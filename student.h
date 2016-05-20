@@ -23,7 +23,6 @@ extern void wake_up(pcb_t* process);
 /* Functions available to use in student.c to manipulate ready queue */
 static void addReadyProcess(pcb_t* proc);
 static pcb_t* getReadyProcess(void);
-static void printReadyQueue();
 
 /*
  * current[] is an array of pointers to the currently running processes.

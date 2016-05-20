@@ -322,8 +322,7 @@ static void print_gantt_line(void) {
   /* Print running processes */
   for (n = 0; n < cpu_count; n++) {
     if (simulator_cpu_data[n].current != NULL)
-      printf(" %-8s%d", simulator_cpu_data[n].current->name,
-             simulator_cpu_data[n].current->static_priority);
+      printf(" %-8s", simulator_cpu_data[n].current->name);
     else
       printf(" (IDLE)  ");
   }
@@ -434,8 +433,6 @@ static void simulate_process(unsigned int cpu_id, pcb_t *pcb) {
         simulator_cpu_data[cpu_id].preemption_timer--;
         if (simulator_cpu_data[cpu_id].preemption_timer == 0) {
           /* The timer has expired; preempt the running process */
-          printf("Preemption timer EXPIRED!\n");
-          fflush(stdout);
           simulator_cpu_data[cpu_id].state = CPU_PREEMPT;
           pthread_cond_signal(&simulator_cpu_data[cpu_id].wakeup);
           // wait to make sure thread finishes preempt and context switch
