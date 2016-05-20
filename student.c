@@ -256,8 +256,8 @@ extern void wake_up(pcb_t* process) {
         pthread_mutex_unlock(&current_mutex);
         addReadyProcess(process);
         return;
-      } else if (current[id]->static_priority <
-                 current[lowestPrioCPU]->static_priority) {
+      } else if (current[id]->static_priority < current[lowestPrioCPU]->static_priority) {
+        pthread_mutex_unlock(&current_mutex);
         lowestPrioCPU = id;
       }
       // else loop again checking next CPU

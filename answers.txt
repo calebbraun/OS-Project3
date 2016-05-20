@@ -55,6 +55,8 @@ FIFO has a waiting time of 389.9s
 RR has an average waiting time of 300s
 Static Priority has an average waiting time of 175s
 
+According to our results Static Priority is the closest algorithm to Shortest Job First because Static Priority had a significantly shorter average wait time. This is because SJF is essentially a static priority scheduler with the priority being the estimated time remaining of a certain process whereas RR is similar to FIFO. In SJF the smaller the anticipated time remaining, the higher the priority. 
+
 
 
 
