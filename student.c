@@ -256,7 +256,8 @@ extern void wake_up(pcb_t* process) {
         pthread_mutex_unlock(&current_mutex);
         addReadyProcess(process);
         return;
-      } else if (current[id]->static_priority < current[lowestPrioCPU]->static_priority) {
+      } else if (current[id]->static_priority <
+                 current[lowestPrioCPU]->static_priority) {
         pthread_mutex_unlock(&current_mutex);
         lowestPrioCPU = id;
       }
@@ -295,7 +296,7 @@ static void addReadyProcess(pcb_t* proc) {
     if (head == NULL) {  // Empty queue
       printf("Adding %s to empty Q\n", proc->name);
       fflush(stdout);
-      proc->next = NULL;
+      // proc->next = NULL;
       head = proc;
       tail = proc;
       pthread_cond_signal(&ready_empty);  // wake up any idling CPUs
@@ -369,6 +370,7 @@ static pcb_t* getReadyProcess(void) {
   // get first process to return and update head to point to next process
   pcb_t* first = head;
   head = first->next;
+  first->next = NULL;
 
   // if there was no next process, list is now empty, set tail to NULL
   if (head == NULL) tail = NULL;
